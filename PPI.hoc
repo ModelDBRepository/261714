@@ -1,0 +1,219 @@
+strdef cmd
+objref vbox1, vbox2, vbox3, vbox4         
+objref gv1, gi2, gi3               
+objref volt_cl                     
+objref peak_vec 		   
+objref v_vec
+objref ms			   
+
+create soma
+soma {
+	diam = 21.851       
+	L    = 21.851 
+	nseg = 1 	    
+	cm   = 1         
+	Ra   = 60        
+	insert CaR 
+	cai0_ca_ion = 0.000001
+	cao0_ca_ion = 4
+	celsius = 22
+	volt_cl = new VClamp_plus(.5)
+}
+
+vbox4 = new VBox()
+vbox4.intercept(1)
+ms = new MechanismStandard("CaR")
+ms.action("change_CaR()")
+ms.in()
+ms.panel()
+vbox4.intercept(0)
+vbox4.map("CaR Control", 327, 783, -1, -1)
+
+
+proc change_CaR() {
+	ms.out()
+}
+
+y_min = -0.2 
+displ = 1    
+		     
+
+incr = 10      		
+dens = 0	  		 
+cl_st = -120
+cl_end = 10
+
+peak_vec = new Vector()
+v_vec    = new Vector()
+
+soma volt_cl=new VClamp_plus(.5)
+
+proc Clamp() {
+
+     peak_curr = 0     
+     volt_cl.amp[1] = $1			 
+     finitialize(hold_pot)
+     
+     while (t<tstop) {
+
+             dens=soma.ica(.5) 
+														
+             if (displ==1) {
+				 gv1.line(t, soma.v(.5))
+				 gv1.flush()
+				 gi2.line(t, dens) 
+				 gi2.flush()
+             }
+             
+             if (t>(dur_st_cond+10)) {
+             	
+                if (abs(dens)>peak_curr) {
+                	peak_curr=abs(dens)
+            	}
+             }
+         fadvance()
+     }
+     
+     peak_vec.append(peak_curr)
+     v_vec.append($1)
+     print peak_curr, $1   
+     doEvents()
+}
+
+
+
+proc erase() {
+
+  //   gv1.erase(0)
+ //    gi2.erase(0)
+     gv1.size(0, tstop, cl_st, cl_end)
+     gi2.size(volt_cl.dur[0]+dur_st_cond, volt_cl.dur[0]+dur_st_cond+dur_st_test+volt_cl.dur[3], y_min, 0.1)
+     gv1.beginline()
+     gi2.beginline(2,1)
+
+}
+
+proc start() {
+	
+    peak_vec.resize(0)
+    v_vec.resize(0)
+    Tstop()
+
+    for (i=cl_st; i<=cl_end; i=i+incr) {
+
+		Clamp(i)
+
+		erase()
+	}
+	
+	peak_norm = peak_vec.max()
+	for i=0, peak_vec.size()-1 {
+		peak_vec.x[i]=peak_vec.x[i]/peak_norm
+	}
+	
+    gi3.erase()
+    gi3.size(cl_st-10, cl_end+10, 0, 1)
+    gi3.begin()
+	peak_vec.line(gi3,v_vec,1,1)
+        
+    for i=0, peak_vec.size()-1 {
+		gi3.flush()
+		doNotify()
+    }
+    
+}
+
+
+proc Tstop() {
+	 
+	 volt_cl.dur[0] = 5	  		 
+     volt_cl.amp[0] = hold_pot   	 
+     volt_cl.dur[1] = dur_st_cond     
+     volt_cl.dur[2] = dur_st_test   
+     volt_cl.amp[2] = amp_st_test	  
+     volt_cl.dur[3] = 5		 	  
+     volt_cl.amp[3] = hold_pot		  
+     
+     tstop = 0
+     for i=0, 3 {
+		tstop = tstop + volt_cl.dur[i]
+	 }
+}
+
+access soma
+execute(cmd)
+	
+{
+xpanel("Run Control", 0)
+hold_pot = -80
+v_init = hold_pot
+xvalue("Init","v_init", 1,"stdinit()", 1, 1 )
+xbutton("Init & Run","run()")
+xbutton("Stop","stoprun=1")
+runStopAt = 5
+xvalue("Continue til","runStopAt", 1,"{continuerun(runStopAt) stoprun=1}", 1, 1 )
+runStopIn = 1
+xvalue("Continue for","runStopIn", 1,"{continuerun(t + runStopIn) stoprun=1}", 1, 1 )
+xbutton("Single Step","steprun()")
+t = 140
+xvalue("t","t", 2 )
+tstop = 140
+xvalue("Tstop","tstop", 1,"tstop_changed()", 0, 1 )
+dt = 0.25
+xvalue("dt","dt", 1,"setdt()", 0, 1 )
+steps_per_ms = 40
+xvalue("Points plotted/ms","steps_per_ms", 1,"setdt()", 0, 1 )
+screen_update_invl = 0.05
+xvalue("Scrn update invl","screen_update_invl", 1,"", 0, 1 )
+realtime = 0.00999999
+xvalue("Real Time","realtime", 0,"", 0, 1 )
+xpanel(2,102)
+}
+
+{
+xpanel("Clamp Control", 0)
+xbutton("Start","start()")
+hold_pot=v_init
+volt_cl.amp[0]=hold_pot
+xvalue("Holding voltage", "volt_cl.amp[0]")
+volt_cl.dur[0]=5
+xvalue("Pre-conditioning duration", "volt_cl.dur[0]", 1, "Tstop()")  
+dur_st_cond = 2000
+xvalue("Conditioning duration", "dur_st_cond", 1, "Tstop()")   
+amp_st_test = 10	 
+xvalue("Test pulse voltage", "amp_st_test")    
+dur_st_test = 25
+xvalue("Test pulse duration", "dur_st_test", 1, "Tstop()")   
+volt_cl.amp[3]=hold_pot
+xvalue("Post-test voltage", "volt_cl.amp[3]")
+volt_cl.dur[3]=5
+xvalue("Post-test duration", "volt_cl.dur[3]", 1, "Tstop()")  
+xvalue("Start voltage", "cl_st")
+xvalue("End voltage", "cl_end")
+xvalue("Increment", "incr")
+xstatebutton("Display", &displ)  
+xpanel(2,537)
+}
+
+
+vbox1=new VBox()
+vbox1.intercept(1)
+gv1=new Graph()
+gv1.size(0, tstop, cl_st, cl_end)
+vbox1.intercept(0)
+vbox1.map("Voltage protocol", 330, 56, 531, 136.9)
+
+vbox2=new VBox()
+vbox2.intercept(1)
+gi2=new Graph()
+gi2.size(volt_cl.dur[0]+dur_st_cond, volt_cl.dur[0]+dur_st_cond+dur_st_test+volt_cl.dur[3], y_min, 0.1)
+vbox2.intercept(0)
+vbox2.map("PPI currents", 330, 321, 531, 287)
+
+
+vbox3=new VBox()
+vbox3.intercept(1)
+gi3=new Graph()
+gi3.size(cl_st-10, cl_end+10, 0, 1)
+vbox3.intercept(0)
+vbox3.map("PPI relationship", 1057, 321, 329.4, 287)

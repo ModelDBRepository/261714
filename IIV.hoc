@@ -1,0 +1,138 @@
+objref volt_cl			 
+objref vbox1, vbox2, vbox3		  
+objref g_v, g_i	          
+objref recV, allV, recT, allT
+objref ms                
+
+y_min=-2.1
+
+proc Tstop() {
+	tstop = volt_cl.dur[0]+volt_cl.dur[1]
+}
+
+create soma
+soma {
+	diam = 21.851        
+	L    = 21.851 	
+	nseg = 1 	     
+	cm   = 1        
+	Ra   = 60        
+	insert CaR 
+	cai0_ca_ion = 0.000001
+	cao0_ca_ion = 4
+	celsius = 22
+	volt_cl = new VClamp_plus(.5)
+}
+
+vbox3 = new VBox()
+vbox3.intercept(1)
+ms = new MechanismStandard("CaR")
+ms.action("change_CaR()")
+ms.in()
+ms.panel()
+vbox3.intercept(0)
+vbox3.map("CaR Control", 1, 759, -1, -1)
+
+proc change_CaR() {
+	ms.out()
+}
+
+proc start() {
+	volt_cl.amp[0]=60
+	volt_cl.dur[0]=10
+	volt_cl.dur[1]=40
+	
+	g_v.erase()
+	g_i.erase()
+	g_v.size(0, tstop, st_cl-10, end_cl+10)
+	g_i.size(0, tstop, y_min, 0.1)
+	
+	allV = new Vector()
+	allT = new Vector()
+	recV = new Vector()
+	recV.record(&dens)
+	recT = new Vector()
+	recT.record(&t)
+
+	for (i=st_cl; i<=end_cl; i=i+incr1) {
+       volt_cl.amp[1]=i
+       
+       finitialize(v_init)
+       g_v.beginline()
+       g_i.beginline()
+       
+       while (t<tstop) {
+       		
+			
+       		dens=soma.ica(0.5) 
+       		
+       		g_i.line(t, dens)
+       		g_v.line(t, soma.v(.5))
+       		
+       		fadvance()
+       }
+       g_v.size(0, tstop, st_cl-10, end_cl+10)
+	   g_i.size(0, tstop, y_min, 0.1)
+	   g_v.flush
+	   g_i.flush
+	   	allV.append(recV)
+		allT.append(recT)
+    }
+		
+}
+
+{
+xpanel("Run Control", 0)
+v_init = -80
+xvalue("Init","v_init", 1,"stdinit()", 1, 1 )
+xbutton("Init & Run","run()")
+xbutton("Stop","stoprun=1")
+runStopAt = 5
+xvalue("Continue til","runStopAt", 1,"{continuerun(runStopAt) stoprun=1}", 1, 1 )
+runStopIn = 1
+xvalue("Continue for","runStopIn", 1,"{continuerun(t + runStopIn) stoprun=1}", 1, 1 )
+xbutton("Single Step","steprun()")
+t = 20.25
+xvalue("t","t", 2 )
+tstop = 50
+xvalue("Tstop","tstop", 1,"tstop_changed()", 0, 1 )
+dt = 0.0125
+xvalue("dt","dt", 1,"setdt()", 0, 1 )
+steps_per_ms = 40
+xvalue("Points plotted/ms","steps_per_ms", 1,"setdt()", 0, 1 )
+screen_update_invl = 0.05
+xvalue("Scrn update invl","screen_update_invl", 1,"", 0, 1 )
+realtime = 0.00999999
+xvalue("Real Time","realtime", 0,"", 0, 1 )
+xpanel(1,102)
+}
+
+{
+xpanel("Clamp Control", 0)
+xbutton("Start","start()")
+st_cl=-80
+xvalue("Start voltage", "st_cl")
+end_cl=60
+xvalue("End voltage", "end_cl")
+incr1=10
+xvalue("Increment", "incr1")
+hold_pot=v_init
+xvalue("Holding voltage", "hold_pot")
+xpanel(1,537)
+}
+
+
+vbox1=new VBox()
+vbox1.intercept(1)
+g_v=new Graph()
+g_v.size(0, tstop, st_cl-10, end_cl+10)
+vbox1.intercept(0)
+vbox1.map("Voltage protocol", 319, 24, 625, 260)
+
+
+vbox2=new VBox()
+vbox2.intercept(1)
+g_i=new Graph()
+g_i.size(5, tstop, y_min, 0.1)
+vbox2.intercept(0)
+vbox2.map("IIV currents", 320, 456, 625, 304)
