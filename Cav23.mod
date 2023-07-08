@@ -2,7 +2,7 @@ TITLE Cav2.3 voltage-gated calcium channel with kinetic scheme and two Zn2+ bind
 
 COMMENT
 
-Markov model for Cav2.3 channel function and Zn2+-induced modulation based on ionic and gating currents recorded from HEK-293 cells stably transfected with human Cav2.3+ß3-subunits.
+Markov model for Cav2.3 channel function and Zn2+-induced modulation based on ionic and gating currents recorded from HEK-293 cells stably transfected with human Cav2.3+ÃŸ3-subunits.
 Transition rates for movement of sensor 1 in channels with Zn2+ bound to site 1 are shifted by the voltage-offset voff1 and slowed by the slowing factor aoff1.
 Channels with Zn2+ bound to site 2 are non-conductive (blocked) and their transition rates for opening and closing are slowed by the factor f. 
 
